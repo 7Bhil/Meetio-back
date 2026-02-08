@@ -1,9 +1,7 @@
 services:
   - type: web
     name: meetio-backend
-    runtime: php
-    buildCommand: composer install --no-dev --optimize-autoloader && php artisan migrate --force
-    startCommand: apache2-foreground
+    runtime: docker
     envVars:
       - key: APP_ENV
         value: production
