@@ -14,6 +14,7 @@ class Meeting extends Model
         'title',
         'description',
         'date',
+        'duration',
         'location',
         'status',
         'organizer_id',

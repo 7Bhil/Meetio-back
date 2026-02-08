@@ -10,12 +10,27 @@ use Illuminate\Support\Facades\Auth;
 class MeetingController extends Controller
 {
     // Liste des réunions
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
 
-        // Pour un organisateur : ses réunions + celles où il participe
-        if ($user->role === 'organisateur') {
+        // Si le paramètre 'discover' est présent, on montre tout ce qui est "à venir"
+        if ($request->has('discover')) {
+            $meetings = Meeting::where('status', 'à venir')
+                ->where('date', '>', now())
+                ->with(['organizer', 'participants'])
+                ->orderBy('date', 'asc')
+                ->get();
+            return response()->json($meetings);
+        }
+
+        if ($user->role === 'admin') {
+            // L'admin voit TOUTES les réunions
+            $meetings = Meeting::with(['organizer', 'participants'])
+                ->orderBy('date', 'asc')
+                ->get();
+        } elseif ($user->role === 'organisateur') {
+            // L'organisateur voit ses propres réunions + celles où il est invité
             $meetings = Meeting::where('organizer_id', $user->id)
                 ->orWhereHas('participants', function ($query) use ($user) {
                     $query->where('user_id', $user->id);
@@ -24,7 +39,7 @@ class MeetingController extends Controller
                 ->orderBy('date', 'asc')
                 ->get();
         } else {
-            // Pour un utilisateur standard : réunions où il participe
+            // Utilisateur standard : voit uniquement les réunions où il participe
             $meetings = $user->meetings()
                 ->with(['organizer', 'participants'])
                 ->orderBy('date', 'asc')
@@ -41,6 +56,7 @@ class MeetingController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'date' => 'required|date',
+            'duration' => 'nullable|integer|min:1',
             'location' => 'required|string|max:255',
         ]);
 
@@ -48,6 +64,7 @@ class MeetingController extends Controller
             'title' => $request->title,
             'description' => $request->description,
             'date' => $request->date,
+            'duration' => $request->duration ?? 60,
             'location' => $request->location,
             'organizer_id' => Auth::id(),
             'status' => 'à venir',
@@ -102,7 +119,27 @@ class MeetingController extends Controller
         $user = Auth::user();
 
         if ($meeting->participants()->where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'Déjà inscrit']);
+            return response()->json(['message' => 'Déjà inscrit'], 400);
+        }
+
+        // Vérifier les chevauchements
+        $newStart = \Carbon\Carbon::parse($meeting->date);
+        $newEnd = (clone $newStart)->addMinutes($meeting->duration);
+
+        $overlaps = $user->meetings()
+            ->where('status', 'à venir')
+            ->get()
+            ->filter(function ($m) use ($newStart, $newEnd) {
+                $mStart = \Carbon\Carbon::parse($m->date);
+                $mEnd = (clone $mStart)->addMinutes($m->duration);
+                return ($newStart < $mEnd) && ($mStart < $newEnd);
+            });
+
+        if ($overlaps->isNotEmpty()) {
+            return response()->json([
+                'error' => 'Chevauchement détecté',
+                'message' => 'Vous participez déjà à une réunion sur ce créneau : ' . $overlaps->first()->title
+            ], 422);
         }
 
         $meeting->participants()->attach($user->id);

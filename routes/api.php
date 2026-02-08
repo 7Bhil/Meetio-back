@@ -24,4 +24,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('meetings', MeetingController::class);
     Route::post('/meetings/{meeting}/join', [MeetingController::class, 'join']);
     Route::post('/meetings/{meeting}/leave', [MeetingController::class, 'leave']);
+
+    // Admin - User Management
+    Route::get('/users', [App\Http\Controllers\UserController::class, 'index']);
+    Route::put('/users/{user}/role', [App\Http\Controllers\UserController::class, 'updateRole']);
 });
