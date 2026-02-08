@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: meetio-backend
+    runtime: php
+    buildCommand: composer install --no-dev --optimize-autoloader && php artisan migrate --force
+    startCommand: apache2-foreground
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: WEB_CONCURRENCY
+        value: 1
+      # Note: Les autres variables (DB_HOST, APP_KEY, etc.) doivent être ajoutées dans l'UI de Render pour la sécurité.
