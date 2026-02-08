@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MeetingController;
+use App\Http\Controllers\NotificationController;
 
 // Simple health endpoint for the API root
 Route::get('/', function () {
@@ -24,6 +25,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('meetings', MeetingController::class);
     Route::post('/meetings/{meeting}/join', [MeetingController::class, 'join']);
     Route::post('/meetings/{meeting}/leave', [MeetingController::class, 'leave']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
 
     // Admin - User Management
     Route::get('/users', [App\Http\Controllers\UserController::class, 'index']);

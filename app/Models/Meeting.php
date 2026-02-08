@@ -18,6 +18,7 @@ class Meeting extends Model
         'location',
         'status',
         'organizer_id',
+        'max_participants',
     ];
 
     protected $casts = [

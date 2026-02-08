@@ -4,6 +4,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Meeting;
+use App\Notifications\MeetingNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -57,6 +58,7 @@ class MeetingController extends Controller
             'description' => 'nullable|string',
             'date' => 'required|date',
             'duration' => 'nullable|integer|min:1',
+            'max_participants' => 'nullable|integer|min:1',
             'location' => 'required|string|max:255',
         ]);
 
@@ -65,6 +67,7 @@ class MeetingController extends Controller
             'description' => $request->description,
             'date' => $request->date,
             'duration' => $request->duration ?? 60,
+            'max_participants' => $request->max_participants,
             'location' => $request->location,
             'organizer_id' => Auth::id(),
             'status' => 'à venir',
@@ -92,11 +95,22 @@ class MeetingController extends Controller
             'title' => 'string|max:255',
             'description' => 'nullable|string',
             'date' => 'date',
+            'duration' => 'nullable|integer|min:1',
+            'max_participants' => 'nullable|integer|min:1',
             'location' => 'string|max:255',
             'status' => 'in:à venir,en cours,terminée',
         ]);
 
-        $meeting->update($request->only(['title', 'description', 'date', 'location', 'status']));
+        $meeting->update($request->only(['title', 'description', 'date', 'duration', 'max_participants', 'location', 'status']));
+
+        // Notifier les participants
+        foreach ($meeting->participants as $participant) {
+            $participant->notify(new MeetingNotification(
+                'update',
+                'Réunion modifiée',
+                'La réunion "' . $meeting->title . '" a été mise à jour.'
+            ));
+        }
 
         return response()->json($meeting);
     }
@@ -106,6 +120,15 @@ class MeetingController extends Controller
     {
         if ($meeting->organizer_id !== Auth::id()) {
             return response()->json(['error' => 'Non autorisé'], 403);
+        }
+
+        // Notifier les participants avant suppression
+        foreach ($meeting->participants as $participant) {
+            $participant->notify(new MeetingNotification(
+                'delete',
+                'Réunion annulée',
+                'La réunion "' . $meeting->title . '" a été annulée.'
+            ));
         }
 
         $meeting->delete();
@@ -142,7 +165,22 @@ class MeetingController extends Controller
             ], 422);
         }
 
+        // Vérifier la capacité maximale
+        if ($meeting->max_participants && $meeting->participants()->count() >= $meeting->max_participants) {
+            return response()->json([
+                'error' => 'Réunion complète',
+                'message' => 'Désolé, cette réunion a atteint sa capacité maximale de ' . $meeting->max_participants . ' personnes.'
+            ], 422);
+        }
+
         $meeting->participants()->attach($user->id);
+
+        // Notifier l'organisateur
+        $meeting->organizer->notify(new MeetingNotification(
+            'join',
+            'Nouveau participant',
+            $user->name . ' a rejoint votre réunion : ' . $meeting->title
+        ));
 
         return response()->json(['message' => 'Inscription réussie']);
     }
@@ -152,6 +190,13 @@ class MeetingController extends Controller
     {
         $user = Auth::user();
         $meeting->participants()->detach($user->id);
+
+        // Notifier l'organisateur
+        $meeting->organizer->notify(new MeetingNotification(
+            'leave',
+            'Désistement',
+            $user->name . ' a quitté votre réunion : ' . $meeting->title
+        ));
 
         return response()->json(['message' => 'Désinscription réussie']);
     }
