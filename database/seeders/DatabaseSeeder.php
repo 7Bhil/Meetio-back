@@ -17,16 +17,20 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Admin Meetio',
-            'email' => '7bhilal.chitou7@gmail.com',
-            'password' => \Illuminate\Support\Facades\Hash::make('Bh7777777'),
-            'role' => 'admin',
-        ]);
+        // Création sécurisée de l'admin (ne fait rien si l'email existe déjà)
+        User::firstOrCreate(
+            ['email' => '7bhilal.chitou7@gmail.com'],
+            [
+                'name' => 'Admin Meetio',
+                'password' => \Illuminate\Support\Facades\Hash::make('Bh7777777'),
+                'role' => 'admin',
+                'email_verified_at' => now(),
+            ]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
     }
 }

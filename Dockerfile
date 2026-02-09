@@ -34,4 +34,4 @@ RUN chown -R www-data:www-data storage bootstrap/cache
 EXPOSE 80
 
 # Script de démarrage pour lancer les migrations et Apache
-CMD php artisan migrate --force && apache2-foreground
+CMD php artisan migrate --force && php artisan db:seed --force && apache2-foreground
